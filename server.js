@@ -73,6 +73,7 @@ app.post('/api/loginV2', async (req, res) => {
 });
 
 // ==================== GET ALL CLIENTS (CORRECT PUBLIC ENDPOINT FROM SWAGGER) ====================
+// ==================== GET ALL CLIENTS (FORCE FULL LIST - BYPASS PAGINATION) ====================
 app.get('/api/clients', async (req, res) => {
     try {
         const token = req.headers.authorization?.replace('Bearer ', '');
@@ -80,9 +81,12 @@ app.get('/api/clients', async (req, res) => {
             return res.status(401).json({ error: 'Authorization token required' });
         }
 
-        console.log("Fetching clients from public endpoint...");
+        console.log("Fetching ALL clients - bypassing pagination...");
 
-        const response = await fetch(`${API_BASE_URL}/client/api/v1/Client/GetAll`, {
+        // Force full list with maxResultCount=1000
+        const url = `${API_BASE_URL}/client/api/v1/Client/GetAll?maxResultCount=1000`;
+
+        const response = await fetch(url, {
             method: 'GET',
             headers: {
                 'accept': 'application/json',
@@ -90,17 +94,22 @@ app.get('/api/clients', async (req, res) => {
             }
         });
 
-        console.log("Clients API status:", response.status);
+        console.log("Full clients API status:", response.status);
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error("Clients API error:", response.status, errorText);
+            console.error("Full clients API error:", response.status, errorText);
             return res.status(response.status).json({ error: 'Failed to fetch clients', details: errorText });
         }
 
         const data = await response.json();
-        console.log("Clients loaded:", data.length || data.result?.length || 'unknown');
-        res.status(200).json(data);
+        
+        // Agar response mein items + totalCount hai, toh items return kar do (full hone chahiye ab)
+        const clientsToSend = data.items || data.result?.items || data.result || data || [];
+        
+        console.log(`Successfully fetched ${clientsToSend.length} clients (forced full list)`);
+        
+        res.status(200).json(clientsToSend);
 
     } catch (err) {
         console.error('Get clients error:', err.message);
