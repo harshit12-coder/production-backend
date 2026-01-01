@@ -8,8 +8,6 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 const API_BASE_URL = process.env.API_BASE_URL || 'https://api.kushal.kimbal.io';
-const CLIENT_API_BASE_URL = process.env.CLIENT_API_BASE_URL || 'https://client-api.kushal.kimbal.io';
-const METER_REPORT_API_BASE_URL = process.env.METER_REPORT_API_BASE_URL || 'https://meterreport-api.kushal.kimbal.io';
 
 // Secure CORS
 const allowedOrigins = [
@@ -74,7 +72,7 @@ app.post('/api/loginV2', async (req, res) => {
     }
 });
 
-// ==================== GET ALL CLIENTS (USING CORRECT SWAGGER ENDPOINT) ====================
+// ==================== GET ALL CLIENTS (CORRECT PUBLIC ENDPOINT FROM SWAGGER) ====================
 app.get('/api/clients', async (req, res) => {
     try {
         const token = req.headers.authorization?.replace('Bearer ', '');
@@ -82,134 +80,35 @@ app.get('/api/clients', async (req, res) => {
             return res.status(401).json({ error: 'Authorization token required' });
         }
 
-        console.log("Fetching clients from correct Swagger endpoint...");
+        console.log("Fetching clients from public endpoint...");
 
         const response = await fetch(`${API_BASE_URL}/client/api/v1/Client/GetAll`, {
             method: 'GET',
             headers: {
                 'accept': 'application/json',
                 'Authorization': `Bearer ${token}`
-                // Removed Abp.TenantId because not needed for this endpoint (as per Swagger)
             }
         });
 
-        console.log("Upstream clients API status:", response.status);
+        console.log("Clients API status:", response.status);
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error("Upstream clients API error:", response.status, errorText);
-            return res.status(response.status).json({
-                error: 'Upstream API failed',
-                status: response.status,
-                details: errorText
-            });
+            console.error("Clients API error:", response.status, errorText);
+            return res.status(response.status).json({ error: 'Failed to fetch clients', details: errorText });
         }
 
         const data = await response.json();
-        console.log("Clients fetched successfully. Count:", data.length || data.result?.length || 'unknown');
+        console.log("Clients loaded:", data.length || data.result?.length || 'unknown');
         res.status(200).json(data);
 
     } catch (err) {
-        console.error('Get clients critical error:', err.message);
-        res.status(500).json({
-            error: 'Failed to fetch clients',
-            details: err.message
-        });
+        console.error('Get clients error:', err.message);
+        res.status(500).json({ error: 'Failed to fetch clients', details: err.message });
     }
 });
 
-// ==================== GET ALL MOBY CLIENTS ====================
-app.get('/api/mobyclients', async (req, res) => {
-    try {
-        const token = req.headers.authorization?.replace('Bearer ', '');
-        if (!token) {
-            return res.status(401).json({ error: 'Authorization token required' });
-        }
-
-        const response = await fetch(`${API_BASE_URL}/api/services/app/MobyClient/GetAll`, {
-            method: 'GET',
-            headers: {
-                'accept': 'application/json',
-                'Authorization': `Bearer ${token}`,
-                'Abp.TenantId': '1'
-            }
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error("Moby clients upstream error:", response.status, errorText);
-            return res.status(response.status).json({ error: 'Upstream failed', details: errorText });
-        }
-
-        const data = await response.json();
-        res.status(200).json(data);
-    } catch (err) {
-        console.error('Get moby clients error:', err);
-        res.status(500).json({ error: 'Failed to fetch moby clients' });
-    }
-});
-
-// ==================== GET SINGLE CLIENT ====================
-app.get('/api/clients/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const token = req.headers.authorization?.replace('Bearer ', '');
-        if (!token) {
-            return res.status(401).json({ error: 'Authorization token required' });
-        }
-
-        const response = await fetch(`${API_BASE_URL}/api/services/app/Client/Get?id=${id}`, {
-            method: 'GET',
-            headers: {
-                'accept': 'application/json',
-                'Authorization': `Bearer ${token}`,
-                'Abp.TenantId': '1'
-            }
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error("Single client upstream error:", response.status, errorText);
-            return res.status(response.status).json({ error: 'Upstream failed', details: errorText });
-        }
-
-        const data = await response.json();
-        res.status(200).json(data);
-    } catch (err) {
-        console.error('Get client error:', err);
-        res.status(500).json({ error: 'Failed to fetch client' });
-    }
-});
-
-// ==================== PROXY: GET CLIENT DATA (OLD - KEPT FOR FUTURE) ====================
-app.get('/proxy/clients', async (req, res) => {
-    try {
-        const token = req.headers.authorization?.replace('Bearer ', '');
-        if (!token) return res.status(401).json({ error: 'Authorization token required' });
-
-        const response = await fetch(`${CLIENT_API_BASE_URL}/client/api/v1/Client/GetAll`, {
-            method: 'GET',
-            headers: {
-                'accept': 'application/json',
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error("Proxy clients upstream error:", response.status, errorText);
-            return res.status(response.status).json({ error: 'Proxy upstream failed', details: errorText });
-        }
-
-        const data = await response.json();
-        res.status(200).json(data);
-    } catch (err) {
-        console.error('Proxy clients error:', err);
-        res.status(500).json({ error: 'Failed to fetch client data', details: err.message });
-    }
-});
-
-// ==================== PROXY: GET METER REPORTS FOR ONE CLIENT ====================
+// ==================== PROXY: GET MO NUMBERS (CORRECT PUBLIC ENDPOINT FROM SWAGGER) ====================
 app.get('/proxy/meter-reports/:clientId', async (req, res) => {
     try {
         const { clientId } = req.params;
@@ -217,7 +116,9 @@ app.get('/proxy/meter-reports/:clientId', async (req, res) => {
         if (!token) return res.status(401).json({ error: 'Authorization token required' });
         if (!clientId) return res.status(400).json({ error: 'Client ID required' });
 
-        const response = await fetch(`${METER_REPORT_API_BASE_URL}/meterreport/api/v1/MeterReportService/GetMONumbersByClient?clientId=${clientId}`, {
+        console.log(`Fetching MO numbers for client ID: ${clientId}`);
+
+        const response = await fetch(`${API_BASE_URL}/meterreport/api/v1/MeterReportService/GetMONumbersByClient?Id=${clientId}`, {
             method: 'GET',
             headers: {
                 'accept': 'application/json',
@@ -225,20 +126,25 @@ app.get('/proxy/meter-reports/:clientId', async (req, res) => {
             }
         });
 
+        console.log("MO API status:", response.status);
+
         if (!response.ok) {
             const errorText = await response.text();
-            console.error("Meter report upstream error:", response.status, errorText);
-            return res.status(response.status).json({ error: 'Meter report upstream failed', details: errorText });
+            console.error("MO API error:", response.status, errorText);
+            return res.status(response.status).json({ error: 'Failed to fetch MO numbers', details: errorText });
         }
 
         const data = await response.json();
+        console.log("MO numbers loaded:", data.length || data.result?.length || 0);
         res.status(200).json(data);
+
     } catch (err) {
-        console.error('Meter report error:', err);
-        res.status(500).json({ error: 'Failed to fetch meter reports', details: err.message });
+        console.error('MO fetch error:', err.message);
+        res.status(500).json({ error: 'Failed to fetch MO numbers', details: err.message });
     }
 });
 
+// Optional other routes (mobyclients, single client etc.) - keep if needed, or remove to clean
 // 404 Handler
 app.use((req, res) => {
     res.status(404).json({ error: 'Endpoint not found' });
@@ -252,7 +158,5 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
     console.log(`✅ Backend running on port ${PORT}`);
-    console.log(`Main API: ${API_BASE_URL}`);
-    console.log(`Client API: ${CLIENT_API_BASE_URL}`);
-    console.log(`Meter Report API: ${METER_REPORT_API_BASE_URL}`);
+    console.log(`API Base: ${API_BASE_URL}`);
 });
