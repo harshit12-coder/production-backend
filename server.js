@@ -74,7 +74,7 @@ app.post('/api/loginV2', async (req, res) => {
     }
 });
 
-// ==================== GET ALL CLIENTS (FIXED WITH PROPER ERROR HANDLING) ====================
+// ==================== GET ALL CLIENTS (USING CORRECT SWAGGER ENDPOINT) ====================
 app.get('/api/clients', async (req, res) => {
     try {
         const token = req.headers.authorization?.replace('Bearer ', '');
@@ -82,14 +82,14 @@ app.get('/api/clients', async (req, res) => {
             return res.status(401).json({ error: 'Authorization token required' });
         }
 
-        console.log("Fetching clients from main API...");
+        console.log("Fetching clients from correct Swagger endpoint...");
 
-        const response = await fetch(`${API_BASE_URL}/api/services/app/Client/GetAll`, {
+        const response = await fetch(`${API_BASE_URL}/client/api/v1/Client/GetAll`, {
             method: 'GET',
             headers: {
                 'accept': 'application/json',
-                'Authorization': `Bearer ${token}`,
-                'Abp.TenantId': '1'
+                'Authorization': `Bearer ${token}`
+                // Removed Abp.TenantId because not needed for this endpoint (as per Swagger)
             }
         });
 
@@ -106,7 +106,7 @@ app.get('/api/clients', async (req, res) => {
         }
 
         const data = await response.json();
-        console.log("Clients fetched successfully. Count:", data.result?.length || 'unknown');
+        console.log("Clients fetched successfully. Count:", data.length || data.result?.length || 'unknown');
         res.status(200).json(data);
 
     } catch (err) {
@@ -118,7 +118,7 @@ app.get('/api/clients', async (req, res) => {
     }
 });
 
-// ==================== GET ALL MOBY CLIENTS (FIXED) ====================
+// ==================== GET ALL MOBY CLIENTS ====================
 app.get('/api/mobyclients', async (req, res) => {
     try {
         const token = req.headers.authorization?.replace('Bearer ', '');
@@ -149,7 +149,7 @@ app.get('/api/mobyclients', async (req, res) => {
     }
 });
 
-// ==================== GET SINGLE CLIENT (FIXED) ====================
+// ==================== GET SINGLE CLIENT ====================
 app.get('/api/clients/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -181,7 +181,7 @@ app.get('/api/clients/:id', async (req, res) => {
     }
 });
 
-// ==================== PROXY: GET CLIENT DATA ====================
+// ==================== PROXY: GET CLIENT DATA (OLD - KEPT FOR FUTURE) ====================
 app.get('/proxy/clients', async (req, res) => {
     try {
         const token = req.headers.authorization?.replace('Bearer ', '');
