@@ -63,17 +63,14 @@ app.post('/api/loginV2', async (req, res) => {
             const data = JSON.parse(text);
             res.status(response.status).json(data);
         } catch {
-            console.error('Failed to parse JSON from upstream:', text);
             res.status(500).json({ error: 'Invalid JSON returned from auth API' });
         }
     } catch (err) {
-        console.error('Login proxy error:', err);
         res.status(500).json({ error: 'Failed to reach auth server' });
     }
 });
 
-// ==================== GET ALL CLIENTS (CORRECT PUBLIC ENDPOINT FROM SWAGGER) ====================
-// ==================== GET ALL CLIENTS (FORCE FULL LIST - BYPASS PAGINATION) ====================
+// ==================== GET ALL CLIENTS ====================
 app.get('/api/clients', async (req, res) => {
     try {
         const token = req.headers.authorization?.replace('Bearer ', '');
@@ -81,12 +78,7 @@ app.get('/api/clients', async (req, res) => {
             return res.status(401).json({ error: 'Authorization token required' });
         }
 
-        console.log("Fetching ALL clients - bypassing pagination...");
-
-        // Force full list with maxResultCount=1000
-        const url = `${API_BASE_URL}/client/api/v1/Client/GetAll?maxResultCount=1000`;
-
-        const response = await fetch(url, {
+        const response = await fetch(`${API_BASE_URL}/client/api/v1/Client/GetAll?maxResultCount=1000`, {
             method: 'GET',
             headers: {
                 'accept': 'application/json',
@@ -94,38 +86,27 @@ app.get('/api/clients', async (req, res) => {
             }
         });
 
-        console.log("Full clients API status:", response.status);
-
         if (!response.ok) {
             const errorText = await response.text();
-            console.error("Full clients API error:", response.status, errorText);
             return res.status(response.status).json({ error: 'Failed to fetch clients', details: errorText });
         }
 
         const data = await response.json();
-        
-        // Agar response mein items + totalCount hai, toh items return kar do (full hone chahiye ab)
         const clientsToSend = data.items || data.result?.items || data.result || data || [];
-        
-        console.log(`Successfully fetched ${clientsToSend.length} clients (forced full list)`);
-        
         res.status(200).json(clientsToSend);
 
     } catch (err) {
-        console.error('Get clients error:', err.message);
-        res.status(500).json({ error: 'Failed to fetch clients', details: err.message });
+        res.status(500).json({ error: 'Failed to fetch clients' });
     }
 });
 
-// ==================== PROXY: GET MO NUMBERS (CORRECT PUBLIC ENDPOINT FROM SWAGGER) ====================
+// ==================== PROXY: GET MO NUMBERS ====================
 app.get('/proxy/meter-reports/:clientId', async (req, res) => {
     try {
         const { clientId } = req.params;
         const token = req.headers.authorization?.replace('Bearer ', '');
         if (!token) return res.status(401).json({ error: 'Authorization token required' });
         if (!clientId) return res.status(400).json({ error: 'Client ID required' });
-
-        console.log(`Fetching MO numbers for client ID: ${clientId}`);
 
         const response = await fetch(`${API_BASE_URL}/meterreport/api/v1/MeterReportService/GetMONumbersByClient?Id=${clientId}`, {
             method: 'GET',
@@ -135,25 +116,19 @@ app.get('/proxy/meter-reports/:clientId', async (req, res) => {
             }
         });
 
-        console.log("MO API status:", response.status);
-
         if (!response.ok) {
             const errorText = await response.text();
-            console.error("MO API error:", response.status, errorText);
             return res.status(response.status).json({ error: 'Failed to fetch MO numbers', details: errorText });
         }
 
         const data = await response.json();
-        console.log("MO numbers loaded:", data.length || data.result?.length || 0);
         res.status(200).json(data);
 
     } catch (err) {
-        console.error('MO fetch error:', err.message);
-        res.status(500).json({ error: 'Failed to fetch MO numbers', details: err.message });
+        res.status(500).json({ error: 'Failed to fetch MO numbers' });
     }
 });
 
-// Optional other routes (mobyclients, single client etc.) - keep if needed, or remove to clean
 // 404 Handler
 app.use((req, res) => {
     res.status(404).json({ error: 'Endpoint not found' });
@@ -161,11 +136,10 @@ app.use((req, res) => {
 
 // Error Handler
 app.use((err, req, res, next) => {
-    console.error('Unhandled error:', err);
     res.status(500).json({ error: 'Internal server error' });
 });
 
 app.listen(PORT, () => {
-    console.log(`✅ Backend running on port ${PORT}`);
-    console.log(`API Base: ${API_BASE_URL}`);
+    // Only startup log rakh rahe hain - no sensitive info
+    console.log(`Backend running on port ${PORT}`);
 });
