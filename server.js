@@ -27,7 +27,7 @@ app.use(cors({
         }
     },
     credentials: true,
-    methods: ['GET', 'OPTIONS']  // Only GET and OPTIONS (for preflight)
+    methods: ['GET','POST', 'OPTIONS']  // Only GET and OPTIONS (for preflight)
 }));
 
 app.use(express.json());
@@ -36,7 +36,42 @@ app.use(express.json());
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'OK', message: 'Backend is running' });
 });
+// ==================== LOGIN V2 ====================
+app.post('/api/loginV2', async (req, res) => {
+    try {
+        const { userNameOrEmailAddress, password } = req.body;
 
+        if (!userNameOrEmailAddress || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/TokenAuth/Authenticate`, {
+            method: 'POST',
+            headers: {
+                'accept': 'text/plain',
+                'Content-Type': 'application/json-patch+json',
+                'Abp.TenantId': '1'
+            },
+            body: JSON.stringify({
+                userNameOrEmailAddress,
+                password,
+                rememberClient: false
+            })
+        });
+
+        const text = await response.text();
+        try {
+            const data = JSON.parse(text);
+            res.status(response.status).json(data);
+        } catch {
+            console.error('Failed to parse JSON from upstream:', text);
+            res.status(500).json({ error: 'Invalid JSON returned from auth API' });
+        }
+    } catch (err) {
+        console.error('Login proxy error:', err);
+        res.status(500).json({ error: 'Failed to reach auth server' });
+    }
+});
 // ==================== GET ALL CLIENTS ====================
 app.get('/api/clients', async (req, res) => {
     try {
